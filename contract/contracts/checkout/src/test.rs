@@ -11,7 +11,7 @@ fn test_create_invoice_already_exists() {
 
     let invoice_id = String::from_str(&env, "invoice_123");
     let address = Address::generate(&env);
-    let amount = 10u32;
+    let amount = 10i128;
     let note = String::from_str(&env, "Buy online class subscription for 1 month");
 
     // Create an invoice
