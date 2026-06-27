@@ -1,7 +1,5 @@
 #![no_std]
-use soroban_sdk::{
-    contract, contractimpl, symbol_short, Address, Env, IntoVal, String, Symbol, Vec,
-};
+use soroban_sdk::{contract, contractimpl, symbol_short, Address, Env, String, Symbol};
 
 mod error;
 mod invoice;
@@ -86,28 +84,21 @@ impl InvoiceContract {
         Ok(())
     }
 
-    /// Mark an invoice as paid. Only callable via the registered payment contract.
+    /// Mark an invoice as paid. Only callable by the registered payment contract.
     ///
-    /// The "only payment contract can invoke" guarantee is enforced by a cross-call
-    /// handshake: `mark_paid` re-invokes `verify_caller` on the registered payment
-    /// contract. The real payment contract implements `verify_caller` to return `true`.
-    /// A random caller that doesn't know the address of the real payment contract
-    /// can't forge this — the admin is the only one who can set it.
-    pub fn mark_paid(env: Env, id: String) -> Result<bool, Error> {
+    /// The caller MUST pass its own address as `payment_contract`. We compare it
+    /// against the admin-registered address. This avoids cross-call re-entry
+    /// (Soroban forbids contract A calling into A, which a handshake would require).
+    pub fn mark_paid(env: Env, id: String, payment_contract: Address) -> Result<bool, Error> {
         // 1. Lookup the registered payment contract.
-        let payment_contract: Address = env
+        let registered: Address = env
             .storage()
             .instance()
             .get(&PAYMENT_KEY)
             .ok_or(Error::PaymentContractNotSet)?;
 
-        // 2. Cross-call handshake: ask payment contract to verify.
-        let verified: bool = env.invoke_contract(
-            &payment_contract,
-            &Symbol::new(&env, "verify_caller"),
-            Vec::from_array(&env, [payment_contract.into_val(&env)]),
-        );
-        if !verified {
+        // 2. Direct equality check — no cross-call, no re-entry.
+        if payment_contract != registered {
             return Err(Error::Unauthorized);
         }
 

@@ -40,3 +40,66 @@ fn test_get_invoice_not_found() {
         Ok(Error::InvoiceNotFound)
     )
 }
+
+#[test]
+fn test_mark_paid_succeeds_with_registered_payment() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let cid = env.register(InvoiceContract, ());
+    let client = InvoiceContractClient::new(&env, &cid);
+
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    let payment = Address::generate(&env);
+    client.set_payment_contract(&payment);
+
+    let id = String::from_str(&env, "inv_acl_ok");
+    let receiver = Address::generate(&env);
+    let _ = client.create_invoice(&id, &receiver, &10i128, &String::from_str(&env, "n"));
+
+    let ok = client.mark_paid(&id, &payment);
+    assert!(ok);
+}
+
+#[test]
+fn test_mark_paid_rejects_wrong_payment_addr() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let cid = env.register(InvoiceContract, ());
+    let client = InvoiceContractClient::new(&env, &cid);
+
+    let admin = Address::generate(&env);
+    client.init(&admin);
+
+    let registered = Address::generate(&env);
+    let impostor = Address::generate(&env);
+    client.set_payment_contract(&registered);
+
+    let id = String::from_str(&env, "inv_acl_bad");
+    let receiver = Address::generate(&env);
+    let _ = client.create_invoice(&id, &receiver, &10i128, &String::from_str(&env, "n"));
+
+    assert_eq!(
+        client.try_mark_paid(&id, &impostor).unwrap_err(),
+        Ok(Error::Unauthorized)
+    );
+}
+
+#[test]
+fn test_mark_paid_rejects_when_payment_unset() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let cid = env.register(InvoiceContract, ());
+    let client = InvoiceContractClient::new(&env, &cid);
+
+    let id = String::from_str(&env, "inv_acl_unset");
+    let receiver = Address::generate(&env);
+    let _ = client.create_invoice(&id, &receiver, &10i128, &String::from_str(&env, "n"));
+
+    let some_addr = Address::generate(&env);
+    assert_eq!(
+        client.try_mark_paid(&id, &some_addr).unwrap_err(),
+        Ok(Error::PaymentContractNotSet)
+    );
+}

@@ -4,39 +4,50 @@ use checkout::{Invoice, InvoiceContract};
 use soroban_sdk::{testutils::Address as _, Address, Env, String};
 
 #[test]
-fn test_verify_caller() {
-    let env = Env::default();
-    let payment = env.register(crate::PaymentContract, ());
-    let client = crate::PaymentContractClient::new(&env, &payment);
-
-    // Own address -> true; random address -> false.
-    assert!(client.verify_caller(&payment));
-    let other = Address::generate(&env);
-    assert!(!client.verify_caller(&other));
-}
-
-#[test]
-fn test_payment_handshake() {
+fn test_mark_paid_succeeds_with_registered_payment() {
     let env = Env::default();
     env.mock_all_auths();
 
-    // 1. Deploy real checkout, register payment contract as the allowed caller.
     let checkout_addr = env.register(InvoiceContract, ());
     let checkout_client = checkout::InvoiceContractClient::new(&env, &checkout_addr);
     let admin = Address::generate(&env);
     checkout_client.init(&admin);
-    checkout_client.set_payment_contract(&payment_addr(&env));
 
-    // 2. Create an invoice via the real checkout.
-    let id = String::from_str(&env, "inv_acl");
+    let payment_addr = payment_addr(&env);
+    checkout_client.set_payment_contract(&payment_addr);
+
+    let id = String::from_str(&env, "inv_ok");
     let receiver = Address::generate(&env);
     let _ = checkout_client.create_invoice(&id, &receiver, &10i128, &String::from_str(&env, "n"));
 
-    // 3. Direct mark_paid through the real ACL works.
-    let ok = checkout_client.mark_paid(&id);
+    // Pass the registered payment address — mark_paid accepts.
+    let ok = checkout_client.mark_paid(&id, &payment_addr);
     assert!(ok);
     let inv: Invoice = checkout_client.get_invoice(&id);
     assert!(inv.is_paid);
+}
+
+#[test]
+#[should_panic]
+fn test_mark_paid_rejects_wrong_payment_addr() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let checkout_addr = env.register(InvoiceContract, ());
+    let checkout_client = checkout::InvoiceContractClient::new(&env, &checkout_addr);
+    let admin = Address::generate(&env);
+    checkout_client.init(&admin);
+
+    let registered = payment_addr(&env);
+    let impostor = payment_addr(&env);
+    checkout_client.set_payment_contract(&registered);
+
+    let id = String::from_str(&env, "inv_bad");
+    let receiver = Address::generate(&env);
+    let _ = checkout_client.create_invoice(&id, &receiver, &10i128, &String::from_str(&env, "n"));
+
+    // Impostor is not the registered one — must reject.
+    let _ = checkout_client.mark_paid(&id, &impostor);
 }
 
 #[test]
@@ -47,12 +58,12 @@ fn test_mark_paid_rejects_when_payment_unset() {
     let checkout_addr = env.register(InvoiceContract, ());
     let checkout_client = checkout::InvoiceContractClient::new(&env, &checkout_addr);
 
-    let id = String::from_str(&env, "inv_acl_2");
+    let id = String::from_str(&env, "inv_unset");
     let receiver = Address::generate(&env);
-    checkout_client.create_invoice(&id, &receiver, &10i128, &String::from_str(&env, "n"));
+    let _ = checkout_client.create_invoice(&id, &receiver, &10i128, &String::from_str(&env, "n"));
 
-    // No payment contract set -> mark_paid should error / panic.
-    let _ = checkout_client.mark_paid(&id);
+    let impostor = payment_addr(&env);
+    let _ = checkout_client.mark_paid(&id, &impostor);
 }
 
 #[test]
@@ -62,6 +73,5 @@ fn test_pay_invoice_end_to_end() {
 }
 
 fn payment_addr(env: &Env) -> Address {
-    let id = env.register(crate::PaymentContract, ());
-    id
+    env.register(crate::PaymentContract, ())
 }

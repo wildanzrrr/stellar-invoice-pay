@@ -51,21 +51,16 @@ impl PaymentContract {
         let token_client = token::Client::new(&env, &usdc);
         token_client.transfer(&payer, &invoice.receiver, &(invoice.amount));
 
-        // 4. Mark paid in checkout.
+        // 4. Mark paid in checkout. Pass our own address — checkout compares it
+        //    against the admin-registered payment contract. No re-entry, no handshake.
+        let me = env.current_contract_address();
         let _ok: bool = env.invoke_contract(
             &invoice_contract,
             &Symbol::new(&env, "mark_paid"),
-            Vec::from_array(&env, [invoice.id.clone().into_val(&env)]),
+            Vec::from_array(&env, [invoice.id.clone().into_val(&env), me.into_val(&env)]),
         );
 
         Ok(())
-    }
-
-    /// Handshake fn for checkout's `mark_paid` ACL.
-    /// Returns `true` only if the arg equals this contract's own address,
-    /// proving the caller of the handshake is the registered payment contract.
-    pub fn verify_caller(env: Env, claimed: Address) -> bool {
-        claimed == env.current_contract_address()
     }
 }
 
