@@ -19,10 +19,10 @@ const ADMIN_KEY: Symbol = symbol_short!("admin");
 const PAYMENT_KEY: Symbol = symbol_short!("payment");
 
 #[contract]
-pub struct Contract;
+pub struct InvoiceContract;
 
 #[contractimpl]
-impl Contract {
+impl InvoiceContract {
     // Create an invoice workflow:
     // 1. User calls create_invoice with invoice details
     // 2. Check if there is already an invoice with the same id, if yes, return a custom error

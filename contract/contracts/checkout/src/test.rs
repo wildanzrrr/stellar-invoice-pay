@@ -6,8 +6,8 @@ use soroban_sdk::{testutils::Address as _, Address, Env, String};
 #[test]
 fn test_create_invoice_already_exists() {
     let env = Env::default();
-    let contract_id = env.register(Contract, ());
-    let client = ContractClient::new(&env, &contract_id);
+    let contract_id = env.register(InvoiceContract, ());
+    let client = InvoiceContractClient::new(&env, &contract_id);
 
     let invoice_id = String::from_str(&env, "invoice_123");
     let address = Address::generate(&env);
@@ -29,8 +29,8 @@ fn test_create_invoice_already_exists() {
 #[test]
 fn test_get_invoice_not_found() {
     let env = Env::default();
-    let contract_id = env.register(Contract, ());
-    let client = ContractClient::new(&env, &contract_id);
+    let contract_id = env.register(InvoiceContract, ());
+    let client = InvoiceContractClient::new(&env, &contract_id);
 
     let invoice_id = String::from_str(&env, "non_existent_invoice");
 

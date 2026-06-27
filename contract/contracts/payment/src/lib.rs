@@ -14,10 +14,10 @@ use invoice::Invoice;
 const USDC_TOKEN: &str = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
 
 #[contract]
-pub struct Contract;
+pub struct PaymentContract;
 
 #[contractimpl]
-impl Contract {
+impl PaymentContract {
     /// Pay an open invoice with USDC.
     ///
     /// Workflow:

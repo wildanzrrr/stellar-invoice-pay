@@ -1,13 +1,13 @@
 #![cfg(test)]
 
-use checkout::{Contract as CheckoutContract, Invoice};
+use checkout::{Invoice, InvoiceContract};
 use soroban_sdk::{testutils::Address as _, Address, Env, String};
 
 #[test]
 fn test_verify_caller() {
     let env = Env::default();
-    let payment = env.register(crate::Contract, ());
-    let client = crate::ContractClient::new(&env, &payment);
+    let payment = env.register(crate::PaymentContract, ());
+    let client = crate::PaymentContractClient::new(&env, &payment);
 
     // Own address -> true; random address -> false.
     assert!(client.verify_caller(&payment));
@@ -21,8 +21,8 @@ fn test_payment_handshake() {
     env.mock_all_auths();
 
     // 1. Deploy real checkout, register payment contract as the allowed caller.
-    let checkout_addr = env.register(CheckoutContract, ());
-    let checkout_client = checkout::ContractClient::new(&env, &checkout_addr);
+    let checkout_addr = env.register(InvoiceContract, ());
+    let checkout_client = checkout::InvoiceContractClient::new(&env, &checkout_addr);
     let admin = Address::generate(&env);
     checkout_client.init(&admin);
     checkout_client.set_payment_contract(&payment_addr(&env));
@@ -44,8 +44,8 @@ fn test_payment_handshake() {
 fn test_mark_paid_rejects_when_payment_unset() {
     let env = Env::default();
     env.mock_all_auths();
-    let checkout_addr = env.register(CheckoutContract, ());
-    let checkout_client = checkout::ContractClient::new(&env, &checkout_addr);
+    let checkout_addr = env.register(InvoiceContract, ());
+    let checkout_client = checkout::InvoiceContractClient::new(&env, &checkout_addr);
 
     let id = String::from_str(&env, "inv_acl_2");
     let receiver = Address::generate(&env);
@@ -62,6 +62,6 @@ fn test_pay_invoice_end_to_end() {
 }
 
 fn payment_addr(env: &Env) -> Address {
-    let id = env.register(crate::Contract, ());
+    let id = env.register(crate::PaymentContract, ());
     id
 }
