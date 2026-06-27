@@ -5,15 +5,14 @@ mod error;
 mod invoice;
 
 pub use invoice::Invoice;
+pub use invoice::InvoiceCreatedEvent;
+pub use invoice::InvoicePaidEvent;
 
 use error::Error;
 
-/// Storage key for the admin (the account that can configure the contract).
-const ADMIN_KEY: Symbol = symbol_short!("admin");
-
 /// Storage key for the allowed payment contract address.
-/// When set, only that contract can call `mark_paid` (verified by the `verify_caller`
-/// cross-call handshake).
+/// Set once in the constructor and never changes. The payment contract is the only
+/// address allowed to call `mark_paid`.
 const PAYMENT_KEY: Symbol = symbol_short!("payment");
 
 #[contract]
@@ -21,6 +20,15 @@ pub struct InvoiceContract;
 
 #[contractimpl]
 impl InvoiceContract {
+    /// Constructor: runs once on deploy. The payment contract address is fixed at
+    /// deploy time, so deploy order is: payment first → then checkout with the
+    /// known payment address.
+    pub fn __constructor(env: Env, payment_contract: Address) {
+        env.storage()
+            .instance()
+            .set(&PAYMENT_KEY, &payment_contract);
+    }
+
     // Create an invoice workflow:
     // 1. User calls create_invoice with invoice details
     // 2. Check if there is already an invoice with the same id, if yes, return a custom error
@@ -49,6 +57,13 @@ impl InvoiceContract {
 
         // Store the invoice in the contract's storage
         env.storage().instance().set(&id, &invoice);
+        InvoiceCreatedEvent {
+            id: id.clone(),
+            receiver: invoice.receiver.clone(),
+            amount: invoice.amount,
+            note: invoice.note.clone(),
+        }
+        .publish(&env);
 
         Ok(id)
     }
@@ -60,49 +75,24 @@ impl InvoiceContract {
         }
     }
 
-    /// Set the admin. Can only be called once (when ADMIN_KEY is empty).
-    pub fn init(env: Env, admin: Address) -> Result<(), Error> {
-        if env.storage().instance().has(&ADMIN_KEY) {
-            return Err(Error::Unauthorized);
-        }
-        admin.require_auth();
-        env.storage().instance().set(&ADMIN_KEY, &admin);
-        Ok(())
-    }
-
-    /// Admin-only: register the payment contract that is allowed to call `mark_paid`.
-    pub fn set_payment_contract(env: Env, payment_contract: Address) -> Result<(), Error> {
-        let admin: Address = env
-            .storage()
-            .instance()
-            .get(&ADMIN_KEY)
-            .ok_or(Error::Unauthorized)?;
-        admin.require_auth();
-        env.storage()
-            .instance()
-            .set(&PAYMENT_KEY, &payment_contract);
-        Ok(())
-    }
-
-    /// Mark an invoice as paid. Only callable by the registered payment contract.
+    /// Mark an invoice as paid. Only callable by the payment contract that was
+    /// bound at deploy time.
     ///
     /// The caller MUST pass its own address as `payment_contract`. We compare it
-    /// against the admin-registered address. This avoids cross-call re-entry
-    /// (Soroban forbids contract A calling into A, which a handshake would require).
+    /// against the address stored in the constructor. No cross-call, no re-entry.
     pub fn mark_paid(env: Env, id: String, payment_contract: Address) -> Result<bool, Error> {
-        // 1. Lookup the registered payment contract.
+        // 1. Direct equality check — payment_contract was set in ctor, so no
+        //    "unset" branch is reachable in practice.
         let registered: Address = env
             .storage()
             .instance()
             .get(&PAYMENT_KEY)
-            .ok_or(Error::PaymentContractNotSet)?;
-
-        // 2. Direct equality check — no cross-call, no re-entry.
+            .ok_or(Error::Unauthorized)?;
         if payment_contract != registered {
             return Err(Error::Unauthorized);
         }
 
-        // 3. Flip the flag.
+        // 2. Flip the flag.
         let mut invoice: Invoice = env
             .storage()
             .instance()
@@ -113,6 +103,14 @@ impl InvoiceContract {
         }
         invoice.is_paid = true;
         env.storage().instance().set(&id, &invoice);
+
+        InvoicePaidEvent {
+            id: invoice.id.clone(),
+            amount: invoice.amount,
+            receiver: invoice.receiver.clone(),
+            note: invoice.note.clone(),
+        }
+        .publish(&env);
         Ok(true)
     }
 }

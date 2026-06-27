@@ -3,11 +3,17 @@
 use super::*;
 use soroban_sdk::{testutils::Address as _, Address, Env, String};
 
+fn setup(env: &Env) -> (InvoiceContractClient, Address) {
+    let payment = Address::generate(env);
+    let cid = env.register(InvoiceContract, (&payment,));
+    let client = InvoiceContractClient::new(env, &cid);
+    (client, payment)
+}
+
 #[test]
 fn test_create_invoice_already_exists() {
     let env = Env::default();
-    let contract_id = env.register(InvoiceContract, ());
-    let client = InvoiceContractClient::new(&env, &contract_id);
+    let (client, _) = setup(&env);
 
     let invoice_id = String::from_str(&env, "invoice_123");
     let address = Address::generate(&env);
@@ -29,8 +35,7 @@ fn test_create_invoice_already_exists() {
 #[test]
 fn test_get_invoice_not_found() {
     let env = Env::default();
-    let contract_id = env.register(InvoiceContract, ());
-    let client = InvoiceContractClient::new(&env, &contract_id);
+    let (client, _) = setup(&env);
 
     let invoice_id = String::from_str(&env, "non_existent_invoice");
 
@@ -42,19 +47,11 @@ fn test_get_invoice_not_found() {
 }
 
 #[test]
-fn test_mark_paid_succeeds_with_registered_payment() {
+fn test_mark_paid_succeeds_with_bound_payment() {
     let env = Env::default();
-    env.mock_all_auths();
-    let cid = env.register(InvoiceContract, ());
-    let client = InvoiceContractClient::new(&env, &cid);
+    let (client, payment) = setup(&env);
 
-    let admin = Address::generate(&env);
-    client.init(&admin);
-
-    let payment = Address::generate(&env);
-    client.set_payment_contract(&payment);
-
-    let id = String::from_str(&env, "inv_acl_ok");
+    let id = String::from_str(&env, "inv_ok");
     let receiver = Address::generate(&env);
     let _ = client.create_invoice(&id, &receiver, &10i128, &String::from_str(&env, "n"));
 
@@ -65,41 +62,16 @@ fn test_mark_paid_succeeds_with_registered_payment() {
 #[test]
 fn test_mark_paid_rejects_wrong_payment_addr() {
     let env = Env::default();
-    env.mock_all_auths();
-    let cid = env.register(InvoiceContract, ());
-    let client = InvoiceContractClient::new(&env, &cid);
+    let (client, _) = setup(&env);
 
-    let admin = Address::generate(&env);
-    client.init(&admin);
-
-    let registered = Address::generate(&env);
     let impostor = Address::generate(&env);
-    client.set_payment_contract(&registered);
 
-    let id = String::from_str(&env, "inv_acl_bad");
+    let id = String::from_str(&env, "inv_bad");
     let receiver = Address::generate(&env);
     let _ = client.create_invoice(&id, &receiver, &10i128, &String::from_str(&env, "n"));
 
     assert_eq!(
         client.try_mark_paid(&id, &impostor).unwrap_err(),
         Ok(Error::Unauthorized)
-    );
-}
-
-#[test]
-fn test_mark_paid_rejects_when_payment_unset() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let cid = env.register(InvoiceContract, ());
-    let client = InvoiceContractClient::new(&env, &cid);
-
-    let id = String::from_str(&env, "inv_acl_unset");
-    let receiver = Address::generate(&env);
-    let _ = client.create_invoice(&id, &receiver, &10i128, &String::from_str(&env, "n"));
-
-    let some_addr = Address::generate(&env);
-    assert_eq!(
-        client.try_mark_paid(&id, &some_addr).unwrap_err(),
-        Ok(Error::PaymentContractNotSet)
     );
 }

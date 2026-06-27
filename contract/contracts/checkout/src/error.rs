@@ -7,7 +7,5 @@ pub enum Error {
     InvoiceAlreadyExists = 1,
     InvoiceNotFound = 2,
     InvoiceAlreadyPaid = 3,
-    MarkPaidFailed = 4,
-    Unauthorized = 5,
-    PaymentContractNotSet = 6,
+    Unauthorized = 4,
 }
