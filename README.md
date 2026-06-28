@@ -60,33 +60,48 @@ Then edit `.env`:
 Build the WASM artifacts:
 
 ```bash
-cd contract/contracts/checkout && stellar contract build
-cd ../payment && stellar contract build
+cd contract && stellar contract build
 ```
 
 Deploy the **payment** contract first (you need its address to pass into checkout):
 
 ```bash
 stellar contract deploy \
-  --wasm target/wasm32v1-none/release/payment.wasm \
-  --source <YOUR_STELLAR_SECRET_KEY> \
-  --network testnet
+--wasm target/wasm32v1-none/release/payment.wasm \
+--source-account YOUR_ACCOUNT \
+--network testnet \
+--alias payment
 ```
 
-Then deploy the **checkout** contract, passing the payment contract address as the constructor arg:
+Grab the deployed payment contract address from the output, then use it in the next step.
+
+Deploy the **checkout** contract, passing the payment contract address as the constructor arg:
 
 ```bash
 stellar contract deploy \
   --wasm target/wasm32v1-none/release/checkout.wasm \
-  --source <YOUR_STELLAR_SECRET_KEY> \
+  --source-account YOUR_ACCOUNT \
   --network testnet \
   -- \
-  --payment_contract <PAYMENT_CONTRACT_ADDRESS>
+  --payment_contract PAYMENT_CONTRACT_ADDRESS
 ```
 
-Wire the two deployed addresses into the frontend (the `lib/contract/{checkout,payment}.ts` modules).
+### 4. Create the bindings for the two contracts:
 
-### 4. Run the app
+```bash
+stellar contract bindings typescript \
+  --network testnet \
+  --contract-id payment \
+  --output-dir packages/payment
+stellar contract bindings typescript \
+  --network testnet \
+  --contract-id checkout \
+  --output-dir packages/checkout
+cd packages/checkout && pnpm i && cd ../payment && pnpm i
+cd ../../../
+```
+
+### 5. Run the app
 
 ```bash
 pnpm dev
