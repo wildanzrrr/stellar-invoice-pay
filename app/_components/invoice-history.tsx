@@ -2,17 +2,26 @@
 
 // History tab content. Reads the per-wallet invoice list from localStorage
 // and re-renders on create / paid events. Shows a Skeleton while loading.
+// Each row is clickable and opens a dialog with the full invoice details.
 
 import * as React from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { useWallet } from "@/lib/wallet/use-wallet"
 import {
   listInvoices,
   subscribeHistory,
   type LocalInvoice,
 } from "@/lib/invoices/history"
+import { InvoiceDetails } from "@/app/_components/invoice-details"
 
 const XLM_FORMATTER = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 7,
@@ -23,9 +32,19 @@ function shortId(id: string): string {
   return `${id.slice(0, 4)}…${id.slice(-4)}`
 }
 
-function InvoiceRow({ invoice }: { invoice: LocalInvoice }) {
+function InvoiceRow({
+  invoice,
+  onClick,
+}: {
+  invoice: LocalInvoice
+  onClick: () => void
+}) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-card p-2.5 text-xs">
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex cursor-pointer flex-col gap-1 rounded-lg border border-border bg-card p-2.5 text-left text-xs transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+    >
       <div className="flex items-start justify-between gap-2">
         <span
           className="truncate font-mono text-[11px] text-muted-foreground"
@@ -46,7 +65,7 @@ function InvoiceRow({ invoice }: { invoice: LocalInvoice }) {
       <div className="truncate text-muted-foreground" title={invoice.note}>
         Note: {invoice.note || "—"}
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -72,31 +91,24 @@ function HistorySkeleton() {
 
 export function InvoiceHistory({ refreshKey }: { refreshKey: number }) {
   const { address } = useWallet()
-  // Lazy-init from localStorage; for SSR safety, start empty and read in
-  // the effect below. The address dep in the effect re-syncs on wallet change.
+  const [active, setActive] = React.useState<LocalInvoice | null>(null)
   const [invoices, setInvoices] = React.useState<LocalInvoice[]>([])
-
-  // Track previous address/key so we only show the skeleton on the first
-  // mount or when the wallet changes.
   const [hydrated, setHydrated] = React.useState(false)
-  const [prevAddress, setPrevAddress] = React.useState(address)
 
-  if (address !== prevAddress) {
-    setPrevAddress(address)
+  // Hydrate on mount + re-read whenever the wallet address or the
+  // parent's refreshKey changes. The subscribe effect below is the
+  // path for notifications from addInvoice / markPaidLocal.
+  React.useEffect(() => {
+    setHydrated(true)
     setInvoices(listInvoices(address))
-    if (!hydrated) setHydrated(true)
-  }
+  }, [address, refreshKey])
 
   React.useEffect(() => {
-    // Re-read on mount and whenever the address or refreshKey changes.
-    setInvoices(listInvoices(address))
-    setHydrated(true)
-    // Subscribe to history events (add / markPaid) for the current wallet.
     const off = subscribeHistory(address, () => {
       setInvoices(listInvoices(address))
     })
     return off
-  }, [address, refreshKey])
+  }, [address])
 
   if (!hydrated) return <HistorySkeleton />
 
@@ -110,10 +122,33 @@ export function InvoiceHistory({ refreshKey }: { refreshKey: number }) {
   }
 
   return (
-    <div className="flex flex-col gap-2 overflow-y-auto pr-1">
-      {invoices.map((inv) => (
-        <InvoiceRow key={inv.id} invoice={inv} />
-      ))}
-    </div>
+    <>
+      <div className="flex flex-col gap-2 overflow-y-auto pr-1">
+        {invoices.map((inv) => (
+          <InvoiceRow
+            key={inv.id}
+            invoice={inv}
+            onClick={() => setActive(inv)}
+          />
+        ))}
+      </div>
+
+      <Dialog
+        open={active !== null}
+        onOpenChange={(open) => {
+          if (!open) setActive(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Checkout Details</DialogTitle>
+            <DialogDescription>
+              Scan the QR or share the link to receive payment in USDC.
+            </DialogDescription>
+          </DialogHeader>
+          {active && <InvoiceDetails invoice={active} />}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

@@ -1,11 +1,13 @@
 "use client"
 
 // Right-column content shown after a checkout is created.
-// Displays a QR code for the shareable /pay/[id] link and a copy button.
+// Slim view: just the QR + copyable pay link. Full details live in
+// the History tab (click a row to open the dialog).
 
 import { QRCodeSVG } from "qrcode.react"
 import { Copy } from "@phosphor-icons/react"
 import { toast } from "sonner"
+
 import { Button } from "@/components/ui/button"
 import { payUrlFor } from "@/lib/invoices/qr-url"
 import type { LocalInvoice } from "@/lib/invoices/history"

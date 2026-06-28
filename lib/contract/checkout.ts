@@ -41,13 +41,16 @@ export type CreateInvoiceResult = {
 /**
  * Try to create the invoice on-chain. Throws if the kit/wallet flow fails.
  * Caller should catch and fall back to a local mock.
+ *
+ * Returns the invoice id plus the on-chain transaction hash (the hash of
+ * the inner `invokeHostFunction` op, the same one stellar.expert links to).
  */
 export async function createInvoiceOnChain(input: {
   id: string
   receiver: string
   amount: string
   note: string
-}): Promise<{ id: string }> {
+}): Promise<{ id: string; txHash: string }> {
   const client = getClient(input.receiver)
   const tx = await client.create_invoice({
     id: input.id,
@@ -56,8 +59,14 @@ export async function createInvoiceOnChain(input: {
     note: input.note,
   })
   await tx.simulate()
-  await tx.signAndSend()
-  return { id: input.id }
+  const sent = await tx.signAndSend()
+  // Prefer the confirmed txHash (waits for SUCCESS); fall back to the
+  // PENDING hash from the initial send if getTransaction never resolved.
+  const txHash =
+    sent.getTransactionResponse?.txHash ??
+    sent.sendTransactionResponse?.hash ??
+    ""
+  return { id: input.id, txHash }
 }
 
 /**

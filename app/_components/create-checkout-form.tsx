@@ -81,16 +81,31 @@ export function CreateCheckoutForm({
     }
 
     let onChain = false
+    let txHash = ""
     if (isConnected && address) {
       try {
-        await createInvoiceOnChain({
+        const result = await createInvoiceOnChain({
           id,
           receiver: address,
           amount: onChainAmount,
           note: values.note ?? "",
         })
         onChain = true
-        toast.success("Checkout created on-chain", { description: id })
+        txHash = result.txHash
+        toast.success("Checkout created", {
+          description: id,
+          action: txHash
+            ? {
+                label: "View on explorer",
+                onClick: () =>
+                  window.open(
+                    `https://stellar.expert/explorer/testnet/tx/${txHash}`,
+                    "_blank",
+                    "noopener,noreferrer"
+                  ),
+              }
+            : undefined,
+        })
       } catch (err) {
         console.warn("create_invoice failed, using local mock:", err)
         toast.warning(
