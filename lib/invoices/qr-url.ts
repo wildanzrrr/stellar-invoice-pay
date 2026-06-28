@@ -1,7 +1,14 @@
 // Build the shareable /pay/[id] URL for a given invoice id.
-// SSR-safe: returns a path-only fallback when window is unavailable.
+// Uses NEXT_PUBLIC_APP_URL when set, falls back to the current origin
+// (browser) or a path-only string (SSR) so it's safe to call anywhere.
 
 export function payUrlFor(id: string): string {
-  if (typeof window === "undefined") return `/pay/${id}`
-  return `${window.location.origin}/pay/${id}`
+  const base = process.env.NEXT_PUBLIC_APP_URL
+  if (base && base.length > 0) {
+    return `${base.replace(/\/$/, "")}/pay/${id}`
+  }
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/pay/${id}`
+  }
+  return `/pay/${id}`
 }

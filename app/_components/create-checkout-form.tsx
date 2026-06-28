@@ -167,15 +167,22 @@ export function CreateCheckoutForm({
           )}
         />
 
-        <Button type="submit" size="lg" disabled={submitting}>
+        <Button type="submit" size="lg" disabled={submitting || !isConnected}>
           {submitting ? (
             <>
               <Spinner /> Creating…
             </>
+          ) : !isConnected ? (
+            "Connect a wallet to create"
           ) : (
             "Create Checkout"
           )}
         </Button>
+        {!isConnected && (
+          <p className="text-center text-xs text-muted-foreground">
+            A connected testnet wallet is required to create a checkout.
+          </p>
+        )}
       </form>
     </Form>
   )
