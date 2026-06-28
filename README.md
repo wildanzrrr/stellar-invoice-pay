@@ -10,13 +10,20 @@ The tagline says it all: _Make Checkout, get Paid in USDC._
 
 ## Deployment Summary
 
-| Component             | Details                                                                                                             |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **Website**           | Next.js 16 app (App Router) — `app/` for the home & `/pay/[id]` routes, Tailwind + shadcn/ui                        |
-| **Checkout Contract** | Soroban contract at `contract/contracts/checkout` — owns invoices, emits `InvoiceCreatedEvent` / `InvoicePaidEvent` |
-| **Payment Contract**  | Soroban contract at `contract/contracts/payment` — pulls USDC via SAC, calls `mark_paid` on checkout                |
+| Component             | Details                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Website**           | https://stellar-invoice-pay.vercel.app/                                                                                                                                                                                                                                                                                                                                                                       |
+| **Checkout Contract** | [CAXMI7MNVY2TSIWB4RF2V5DTBP26Z5CIUGUWATLWCL67UPBA2F23IOE3](https://lab.stellar.org/smart-contracts/contract-explorer?$=network$id=testnet&label=Testnet&horizonUrl=https:////horizon-testnet.stellar.org&rpcUrl=https:////soroban-testnet.stellar.org&passphrase=Test%20SDF%20Network%20/;%20September%202015;&smartContracts$explorer$contractId=CAXMI7MNVY2TSIWB4RF2V5DTBP26Z5CIUGUWATLWCL67UPBA2F23IOE3;;) |
+| **Payment Contract**  | [CDPK2U33ENBPXTXJGLIIFJVKCUSI5R6UPHHCLC334QJOWIKOJAW523RV](https://lab.stellar.org/smart-contracts/contract-explorer?$=network$id=testnet&label=Testnet&horizonUrl=https:////horizon-testnet.stellar.org&rpcUrl=https:////soroban-testnet.stellar.org&passphrase=Test%20SDF%20Network%20/;%20September%202015;&smartContracts$explorer$contractId=CDPK2U33ENBPXTXJGLIIFJVKCUSI5R6UPHHCLC334QJOWIKOJAW523RV;;) |
 
-Both contracts are built with `stellar contract build` (see `contract/contracts/{checkout,payment}/Makefile`) and deployed to Stellar **Testnet**. The payment contract address is passed into the checkout contract's constructor and pinned as the only authorized caller of `mark_paid`.
+<div>
+    <a href="https://www.loom.com/share/9288a39e6dc84f7c8598dd33660845cc">
+      <p>Invoice and Pay App Demo on Stellar - Watch Video</p>
+    </a>
+    <a href="https://www.loom.com/share/9288a39e6dc84f7c8598dd33660845cc">
+      <img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/9288a39e6dc84f7c8598dd33660845cc-18cc4a7a155c1b4f-full-play.gif#t=0.1">
+    </a>
+  </div>
 
 ---
 
